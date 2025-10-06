@@ -9,7 +9,6 @@ import kick_Member         from './logic/kick_Moderation';
 
 import avatar_Display      from "./logic/avatar_General";
 
-
 export default
 async (message: Message, command: string, args: string[]) => {
     switch (command) {

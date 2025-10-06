@@ -4,6 +4,7 @@ import {
     Client,
     MessageFlags,
     GatewayIntentBits,
+    ChannelType,
 } from 'discord.js';
 
 
@@ -53,10 +54,10 @@ client.on('interactionCreate', async interaction => {
             }
         } else if (interaction.isButton()) {
             switch (interaction.customId) {
-                default:
-                    interaction.deferUpdate();
-                    break;
-          }
+                    default:
+                        interaction.deferUpdate();
+                        break;
+            }
         }
     } catch (e) {
         console.error(e);
@@ -65,7 +66,7 @@ client.on('interactionCreate', async interaction => {
 
 
 import text_commands       from './text-commands';
-import { onJoin, onLeave } from './logic/join-to-create-vc_Setup';
+import { tempVCs } from './data';
 
 client.on("messageCreate", async (message) => {
     if (!message.guild) return;
@@ -86,12 +87,34 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
     // user joins a VC
     if (!oldState.channelId && newState.channelId) {
-        await onJoin(newState);
+        if (!newState.member || !newState.channel) return;
+        if (newState.channel.name === 'create') {
+            console.log(newState.member.id, "Joined", newState.channelId);
+            const newVC = await newState.guild.channels.create({
+                name: `${newState.member.user.username}'s VC`,
+                type: ChannelType.GuildVoice,
+                parent: newState.channel?.parent,
+                permissionOverwrites: [
+                  {
+                    id: newState.member.id,
+                    allow: ["Connect", "ManageChannels"],
+                  },
+                ]
+            });
+            await newState.setChannel(newVC);
+            tempVCs.add(newVC.id);
+        }
     }
 
     // user leaves a VC
     else if (oldState.channelId && !newState.channelId) {
-        await onLeave(oldState);
+        const channel = oldState.channel;
+        if (tempVCs.has(channel?.id!)) {
+            if (channel?.members.size === 0) {
+                await channel.delete();
+                tempVCs.delete(channel.id);
+            }
+        }
     }
 
     // user switches VC
@@ -102,13 +125,8 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
 
 // Server Join / Server Leave
-import execQuery from './database/do/execQuery';
-
-client.on('guildCreate', async (guild) =>
-    await execQuery('INSERT INTO Guilds (guild_id) VALUES ($1)', [guild.id]));
-
-client.on('guildDelete', async (guild) =>
-    await execQuery('DELETE FROM Guilds WHERE guild_id = $1', [guild.id]));
+client.on('guildCreate', async (guild) => {});
+client.on('guildDelete', async (guild) => {});
 
 
 // Login
